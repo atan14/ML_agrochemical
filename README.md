@@ -3,9 +3,16 @@
 Required Packages:
 - numpy
 - pandas
-- pubchempy
-- cirpy
 - rdkit
 
-First trial:
-Using pesticide (conventional active chemical) database downloaded from EPA: Environment Protection Agency website. 
+Data source:
+Chembl_24_sqlite
+Data retrieval command: 
+```
+sqlite> .headers on
+sqlite> .mode csv
+sqlite> .output toxins.csv
+sqlite> select * from assays where description like "%<keyword>%";
+```
+where <keyword> used are 'nematicide', 'herbacide', 'insecticide', 'fungicide' and 'toxin'.
+
