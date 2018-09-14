@@ -9,6 +9,7 @@ Data source:
 Chembl_24_sqlite
 Data retrieval command: 
 ```
+sqlite3 chembl_24.db
 sqlite> .headers on
 sqlite> .mode csv
 sqlite> .output toxins.csv
