@@ -6,7 +6,7 @@ Required Packages:
 - rdkit
 
 Data source:
-[Chembl_24_sqlite] `https://www.ebi.ac.uk/chembl/`
+[Chembl\_24\_sqlite] `https://www.ebi.ac.uk/chembl/`
 
 Data retrieval command: 
 ```
@@ -16,5 +16,5 @@ sqlite> .mode csv
 sqlite> .output toxins.csv
 sqlite> select * from assays where description like "%<keyword>%";
 ```
-where <keyword> used are 'nematicide', 'herbacide', 'insecticide', 'fungicide' and 'toxin'.
+where \<keyword\> used are 'nematicide', 'herbacide', 'insecticide', 'fungicide' and 'toxin'.
 
