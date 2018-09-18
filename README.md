@@ -6,7 +6,8 @@ Required Packages:
 - rdkit
 
 Data source:
-Chembl_24_sqlite
+[Chembl_24_sqlite] `https://www.ebi.ac.uk/chembl/`
+
 Data retrieval command: 
 ```
 sqlite3 chembl_24.db
