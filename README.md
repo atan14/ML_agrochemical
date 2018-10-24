@@ -4,9 +4,10 @@ Required Packages:
 - numpy
 - pandas
 - rdkit
+- scikit-learn
 
 Run files in order of file numbering.
-[1\_extract-data.ipynb -> 2\_learn-data.ipynb]
+[1\_extract-data.ipynb -> 2\_conventional\_machine\_learning.ipynb]
 
 Data source:
 [Chembl\_24\_sqlite.tar.gz -> chembl\_24.db] `https://www.ebi.ac.uk/chembl/`
@@ -17,7 +18,7 @@ sqlite3 chembl_24.db
 sqlite> .headers on
 sqlite> .mode csv
 sqlite> .output toxins.csv
-sqlite> select * from assays where description like "%<keyword>%"; [note the two \% before and after keyword]
+sqlite> select * from assays where description like "%<keyword>%"; [note the two % before and after keyword]
 ```
 where \<keyword\> used in this project are 'nematicidal', 'herbacidal', 'insecticidal', 'fungicidal' and 'toxin'. 
 
