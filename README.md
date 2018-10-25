@@ -5,6 +5,7 @@ Required Packages:
 - pandas
 - rdkit
 - scikit-learn
+- keras
 
 Run files in order of file numbering.
 [1\_extract-data.ipynb -> 2\_conventional\_machine\_learning.ipynb]
