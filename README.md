@@ -8,7 +8,6 @@ Required Packages:
 - keras
 
 Run files in order of file numbering.
-[1\_extract-data.ipynb -> 2\_conventional\_machine\_learning.ipynb]
 
 Data source:
 [Chembl\_24\_sqlite.tar.gz -> chembl\_24.db] `https://www.ebi.ac.uk/chembl/`
