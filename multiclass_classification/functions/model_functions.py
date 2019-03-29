@@ -9,7 +9,7 @@ def build_simplenn_model(layers_dim=[2048, 128, 8, 1], activation=['relu', 'soft
                                      activation=activation[i]))
 
     # Compile model
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     return model
 
@@ -39,7 +39,7 @@ def build_convolutional_model(feature_length):
     model.add(Dropout(0.5))
     model.add(Dense(1, activation='softmax'))
 
-    model.compile(loss='binary_crossentropy',
+    model.compile(loss='categorical_crossentropy',
                   optimizer='rmsprop',
                   metrics=['accuracy'])
 
@@ -180,12 +180,13 @@ def train_model(model, num_split, seed, X, Y, neural_network=0):
     :return: Trained model
     """
     from sklearn.model_selection import ShuffleSplit
+    from keras.utils import to_categorical
     import numpy as np
     import time
 
     shuffle = ShuffleSplit(n_splits=num_split, random_state=seed, test_size=0.2)
     accuracy, fitting_time = 0.0, 0.0
-    tn, fp, fn, tp = 0.0, 0.0, 0.0, 0.0
+    accuracy, precision, recall, f1 = 0.0, 0.0, 0.0, 0.0
     i = 0
 
     for train_idx, test_idx in shuffle.split(X):
@@ -198,35 +199,38 @@ def train_model(model, num_split, seed, X, Y, neural_network=0):
         ml = model
 
         if neural_network:
-            if neural_network == 'convnn':
-                x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-                x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
-            ml.fit(x_train, y_train, epochs=1, batch_size=32, verbose=0)
+            y_train_categorical = to_categorical(y_train)
+            ml.fit(x_train, y_train_categorical, epochs=1, batch_size=32, verbose=0)
         else:
             ml.fit(x_train, y_train)
 
         pred_train = ml.predict(x_train)
         pred_test = ml.predict(x_test)
 
+        if neural_network:
+            pred_train = pred_train.argmax(axis=1)
+            pred_test = pred_test.argmax(axis=1)
+
         pred_train = np.around(np.ndarray.flatten(pred_train))
         pred_test = np.around(np.ndarray.flatten(pred_test))
 
         end = time.perf_counter()
 
-        tn_, fp_, fn_, tp_, acc_ = performance_metrics(y_train, y_test, pred_train, pred_test)
-
-        tn += float(tn_) / num_split
-        fp += float(fp_) / num_split
-        fn += float(fn_) / num_split
-        tp += float(tp_) / num_split
+        acc_, prec_, rec_, f1_ = performance_metrics(y_train, y_test, pred_train, pred_test)
 
         accuracy += float(acc_) / num_split
+        precision += float(prec_) / num_split
+        recall += float(rec_) / num_split
+        f1 += float(f1_) / num_split
+
         fitting_time += (end - start) / num_split
         print ("Fitting time", (end-start), "\n")
 
     print ("===== Average results over %s splits =====" % num_split)
     print ("Accuracy : %f" % accuracy)
-    print ("TN, FP, FN, TP:", tn, fp, fn, tp)
+    print ("Precision:", precision)
+    print ("Recall:", recall)
+    print ("F1 score:", f1)
     print ("Average time taken: %f" % fitting_time)
     print ("==========================================")
 
@@ -282,36 +286,35 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     :param pred_test: Predicted testing labels.
     :return: Score of true negative, false positive, false negative, true positive and accuracy of model prediction.
     """
-    from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, precision_score,\
-        recall_score, f1_score
+    import pandas as pd
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, \
+        cohen_kappa_score, matthews_corrcoef
 
     print ("Training set report:")
-    print ("Agro vs non-agro: %s vs %s" %(list(y_train).count(1), list(y_train).count(0)))
-    tn_, fp_, fn_, tp_ = confusion_matrix(y_train, pred_train).ravel()
-    print ("TN, FP, FN, TP: %s, %s, %s, %s" %(tn_, fp_, fn_, tp_))
+    print ("True agrochemical classes: \n%s" %(pd.Series(y_train).value_counts()))
+    print ("Predicted agrochemical classes: \n%s" % (pd.Series(pred_train).value_counts()))
     print ("Accuracy score:", accuracy_score(y_train, pred_train))
-    print ("AUC score:", roc_auc_score(y_train, pred_train))
-    print ("Precision score:", precision_score(y_train, pred_train))
-    print ("Recall score:", recall_score(y_train, pred_train))
-    print ("F1 score:", f1_score(y_train, pred_train))
+    print ("Precision score:", precision_score(y_train, pred_train, average='macro'))
+    print ("Recall score:", recall_score(y_train, pred_train, average='macro'))
+    print ("F1 score:", f1_score(y_train, pred_train, average='macro'))
+    print ("Cohen Kappa score:", cohen_kappa_score(y_train, pred_train))
+    print ("Matthews correlation coefficient:", matthews_corrcoef(y_train, pred_train))
     print ()
     print ("Testing set report:")
-    print ("Agro vs non-agro: %s vs %s" %(list(y_test).count(1), list(y_test).count(0)))
-    tn_, fp_, fn_, tp_ = confusion_matrix(y_test, pred_test).ravel()
-    print ("TN, FP, FN, TP: %s, %s, %s, %s" %(tn_, fp_, fn_, tp_))
-    acc = accuracy_score(y_test, pred_test)
-    print ("Accuracy score:", acc)
-    print ("AUC score:", roc_auc_score(y_test, pred_test))
-    print ("Precision score:", precision_score(y_test, pred_test))
-    print ("Recall score:", recall_score(y_test, pred_test))
-    print ("F1 score:", f1_score(y_test, pred_test))
-    print ()
+    print("True agrochemical classes: \n%s" % (pd.Series(y_test).value_counts()))
+    print("Predicted agrochemical classes: \n%s" % (pd.Series(pred_test).value_counts()))
+    print("Accuracy score:", accuracy_score(y_test, pred_test))
+    print("Precision score:", precision_score(y_test, pred_test, average='macro'))
+    print("Recall score:", recall_score(y_test, pred_test, average='macro'))
+    print("F1 score:", f1_score(y_test, pred_test, average='macro'))
+    print("Cohen Kappa score:", cohen_kappa_score(y_test, pred_test))
+    print("Matthews correlation coefficient:", matthews_corrcoef(y_test, pred_test))
+    print()
 
-    N_test = len(y_test)
-    tn = float(tn_) / N_test 
-    fp = float(fp_) / N_test 
-    fn = float(fn_) / N_test 
-    tp = float(tp_) / N_test 
+    accuracy = accuracy_score(y_test, pred_test)
+    precision = precision_score(y_test, pred_test, average='macro')
+    recall = recall_score(y_test, pred_test, average='macro')
+    f1 = f1_score(y_test, pred_test, average='macro')
 
-    return tn, fp, fn, tp, acc
+    return accuracy, precision, recall, f1
 

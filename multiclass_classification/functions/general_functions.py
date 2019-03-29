@@ -17,6 +17,7 @@ def import_pandas_dataframe(pathway):
         data = store.get(pathway[pathway.rfind('/')+1:pathway.rfind('.')])
     else:
         raise Exception("File '%s' not found in pathway." % pathway)
+    data = data[data['agrochemical'] != 4].reset_index(drop=True)
     print ("Done importing data.")
     return data
 

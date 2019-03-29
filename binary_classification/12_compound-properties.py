@@ -2,8 +2,8 @@ import argparse
 import os
 import numpy as np
 
-from functions.model_functions import *
-from functions.general_functions import *
+from functions import model_functions as model
+from functions import general_functions as general
 
 
 parser = argparse.ArgumentParser(description='Training using compound properties features.')
@@ -28,9 +28,9 @@ parser.add_argument('--layer_dim', type=int, default=3)
 args = parser.parse_args()
 
 # Import data
-temp_path = file_pathway(args.dataset)
+temp_path = general.file_pathway(args.dataset)
 if os.path.exists(temp_path):
-    data = import_pandas_dataframe(temp_path)
+    data = general.import_pandas_dataframe(temp_path)
     print("Shape of data:", data.shape)
 else:
     raise Exception("%s does not exist." % args.dataset)
@@ -64,18 +64,18 @@ if method in ['simplenn']:
     elif args.layer_dim == 5:
         layers_dim = [15, 12, 8, 4, 2, 1]
         activation = ['relu', 'tanh', 'softmax', 'tanh', 'sigmoid']
-    model = define_model(method, layers_dim, activation)
+    model = model.define_model(method, layers_dim, activation)
 elif method in ['convnn']:
     neural_network = method
     feature_length = X.shape[1]
-    model = define_model(method, feature_length)
+    model = model.define_model(method, feature_length)
 else:
-    model = define_model(method, model_param)
+    model = model.define_model(method, model_param)
 
-model = train_model(model, num_split, seed, X, Y, neural_network=neural_network)
+model = model.train_model(model, num_split, seed, X, Y, neural_network=neural_network)
 if save:
     save_filepath = './saved_model/' + "%s_%s_%s.h" % (method, args.dataset[:args.dataset.rfind('.')], args.filename_append)
-    save_model(model, save_filepath, neural_network)
+    model.save_model(model, save_filepath, neural_network)
 
 print ("\nExiting program.")
 
