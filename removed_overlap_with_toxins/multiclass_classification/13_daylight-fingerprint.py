@@ -1,8 +1,7 @@
 import argparse
 import os
 import numpy as np
-
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 
 from functions import model_functions as model_func
 from functions import general_functions as general
@@ -17,7 +16,7 @@ parser.add_argument('method', type=str,
                     help='ML methods to use for training (choice: [simplenn, randomforest, '
                          'knearest, gradientboosting, svm, convnn])')
 parser.add_argument('--num_split', type=int, default=10,
-                    help='Number of splits for averaging of binary classification performance.')
+                    help='Number of splits for averaging of multiclass classification performance.')
 parser.add_argument('--seed', type=int, default=7,
                     help='seed number for random shuffling.')
 parser.add_argument('--save_model', type=bool, default=False,
@@ -50,10 +49,10 @@ if not 'fingerprint' in data.columns:
 
 # Input (x) and class (y)
 X = data['fingerprint']
-Y = data['agrochemical']
-
 X = np.stack(X)
-Y = np.array(Y, dtype=float)
+
+mlb = MultiLabelBinarizer().fit(data['agrochemical'])
+Y = mlb.transform(data['agrochemical'])
 
 print ("Standard scaling...")
 st = StandardScaler()
@@ -70,15 +69,16 @@ seed = args.seed
 save = args.save_model
 
 epochs = 0
+
 if method in ['simplenn']:
     if args.layer_dim == 3:
-        layers_dim = [X.shape[1], 128, 8, 1]
+        layers_dim = [X.shape[1], 128, 8, Y.shape[1]]
         activation = ['relu', 'softmax', 'sigmoid']
     elif args.layer_dim == 4:
-        layers_dim = [X.shape[1], 512, 128, 8, 1]
+        layers_dim = [X.shape[1], 512, 128, 8, Y.shape[1]]
         activation = ['relu', 'tanh', 'softmax', 'sigmoid']
     elif args.layer_dim == 5:
-        layers_dim = [X.shape[1], 512, 128, 16, 4, 1]
+        layers_dim = [X.shape[1], 512, 128, 16, 8, Y.shape[1]]
         activation = ['relu', 'tanh', 'softmax', 'tanh', 'sigmoid']
 
     epochs = model_func.plot_nn_loss_against_epoch(X, Y, layers_dim, activation, args.epochs,
@@ -93,15 +93,16 @@ if method in ['simplenn']:
 else:
     model = model_func.define_model(method, model_param)
 
+
 model = model_func.train_model(model, num_split, seed, X, Y,
                                image_name='./image/13_daylight-fingerprint/%s_%s_%s.png' %(method,
-                                                                                args.dataset[
-                                                                    :args.dataset.rfind('.')],
-                                                                      args.filename_append),
+                               args.dataset[:args.dataset.rfind('.')],args.filename_append),
                                neural_network_epochs=epochs)
 if save:
     save_filepath = './saved_model/13_daylight-fingerprint/' + "%s_%s_%s.h" % (method, args.dataset[
-                                                                :args.dataset.rfind('.')], args.filename_append)
+                                                                    :args.dataset.rfind(
+        '.')], args.filename_append)
     model_func.save_model(model, save_filepath, epochs)
 
 print ("\nExiting program.")
+

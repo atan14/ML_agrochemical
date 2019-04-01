@@ -1,12 +1,10 @@
 import argparse
 import os
 import numpy as np
-
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MultiLabelBinarizer
 
 from functions import model_functions as model_func
 from functions import general_functions as general
-from functions import featurizing_functions as ft
 
 
 parser = argparse.ArgumentParser(description='Training using compound properties features.')
@@ -17,7 +15,7 @@ parser.add_argument('method', type=str,
                     help='ML methods to use for training (choice: [simplenn, randomforest, '
                          'knearest, gradientboosting, svm, convnn])')
 parser.add_argument('--num_split', type=int, default=10,
-                    help='Number of splits for averaging of binary classification performance.')
+                    help='Number of splits for averaging of multiclass classification performance.')
 parser.add_argument('--seed', type=int, default=7,
                     help='seed number for random shuffling.')
 parser.add_argument('--save_model', type=bool, default=False,
@@ -33,7 +31,6 @@ parser.add_argument('--optimizer', type=str, default='adam')
 parser.add_argument('--epochs', type=int, default=0)
 args = parser.parse_args()
 
-
 # Import data
 temp_path = general.file_pathway(args.dataset)
 if os.path.exists(temp_path):
@@ -42,23 +39,12 @@ if os.path.exists(temp_path):
 else:
     raise Exception("%s does not exist." % args.dataset)
 
-if not 'fingerprint' in data.columns:
-    print ("Daylight Fingerprinting...")
-    data['fingerprint'] = data['mol'].apply(ft.daylight_fingerprint)
-    data['fingerprint'] = data['fingerprint'].apply(ft.daylight_fingerprint_padding)
-    print ("Daylight Fingerprinting done.")
 
 # Input (x) and class (y)
-X = data['fingerprint']
-Y = data['agrochemical']
+mlb = MultiLabelBinarizer().fit(data['agrochemical'])
 
-X = np.stack(X)
-Y = np.array(Y, dtype=float)
-
-print ("Standard scaling...")
-st = StandardScaler()
-X = st.fit_transform(X)
-print ("Standard scaling done.")
+X = np.array(data.drop(['smiles', 'mol', 'agrochemical'], axis=1), dtype=float)
+Y = mlb.transform(data['agrochemical'])
 
 
 # Machine learning algorithms to use
@@ -70,21 +56,22 @@ seed = args.seed
 save = args.save_model
 
 epochs = 0
+
 if method in ['simplenn']:
     if args.layer_dim == 3:
-        layers_dim = [X.shape[1], 128, 8, 1]
+        layers_dim = [X.shape[1], 12, 8, Y.shape[1]]
         activation = ['relu', 'softmax', 'sigmoid']
     elif args.layer_dim == 4:
-        layers_dim = [X.shape[1], 512, 128, 8, 1]
+        layers_dim = [X.shape[1], 12, 10, 6, Y.shape[1]]
         activation = ['relu', 'tanh', 'softmax', 'sigmoid']
     elif args.layer_dim == 5:
-        layers_dim = [X.shape[1], 512, 128, 16, 4, 1]
-        activation = ['relu', 'tanh', 'softmax', 'tanh', 'sigmoid']
+        layers_dim = [X.shape[1], 12, 10, 8, 6, Y.shape[1]]
+        activation = ['relu', 'tanh', 'sigmoid', 'tanh', 'softmax']
 
     epochs = model_func.plot_nn_loss_against_epoch(X, Y, layers_dim, activation, args.epochs,
-                                            image_name='./image/13_daylight-fingerprint/%s_%s_%s_NNLossAcc.png' % (method, args.dataset[:args.dataset.rfind('.')],args.filename_append))
-
-    print("Number of epochs:", epochs)
+                                            image_name='./image/12_compound-properties/%s_%s_%s_NNLossAcc.png' % (
+                                                method, args.dataset[:args.dataset.rfind('.')],args.filename_append))
+    print ("Number of epochs:", epochs)
 
     model_func.define_model(method)
     model = model_func.build_simplenn_model(layers_dim=layers_dim, activation=activation,
@@ -94,14 +81,14 @@ else:
     model = model_func.define_model(method, model_param)
 
 model = model_func.train_model(model, num_split, seed, X, Y,
-                               image_name='./image/13_daylight-fingerprint/%s_%s_%s.png' %(method,
-                                                                                args.dataset[
-                                                                    :args.dataset.rfind('.')],
-                                                                      args.filename_append),
+                               image_name='./image/12_compound-properties/%s_%s_%s.png' %(method,
+                               args.dataset[:args.dataset.rfind('.')],args.filename_append),
                                neural_network_epochs=epochs)
 if save:
-    save_filepath = './saved_model/13_daylight-fingerprint/' + "%s_%s_%s.h" % (method, args.dataset[
-                                                                :args.dataset.rfind('.')], args.filename_append)
+    save_filepath = './saved_model/12_compound-properties/%s_%s_%s.h' % (method, args.dataset[
+                                                                    :args.dataset.rfind('.')], args.filename_append)
     model_func.save_model(model, save_filepath, epochs)
 
 print ("\nExiting program.")
+
+

@@ -54,6 +54,7 @@ def define_model(method, argv=0):
 
     elif method == 'gradientboosting':
         from sklearn.ensemble import GradientBoostingClassifier
+        from sklearn.multiclass import OneVsRestClassifier
 
         if argv:
             n_estimators = int(argv[0])
@@ -66,6 +67,7 @@ def define_model(method, argv=0):
 
         model = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate,
                                            max_depth=max_depth, random_state=0)
+        model = OneVsRestClassifier(model)
 
         print("\n=================================")
         print("Gradient Boosting Classifier Model")
@@ -126,21 +128,19 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
     :param seed: (int) Seed for random state.
     :param X: (numpy array) Training input.
     :param Y: (numpy array) Class label.
-    :param neural_network_epochs: (bool) whether the model is a neural network model (keras) or
-    conventional machine learning model (scikit-learn) & at the same time specify number of epochs.
+    :param neural_network_epochs: (int) whether the model is a neural network model (keras) or
+    conventional machine learning model (scikit-learn) & at the same time used to specify number
+    of epochs.
     :return: Trained model
     """
     from sklearn.model_selection import ShuffleSplit
-    from sklearn.metrics import roc_curve, auc
-    from scipy import interp
     import numpy as np
     import time
 
     shuffle = ShuffleSplit(n_splits=num_split, random_state=seed, test_size=0.2)
     accuracy, fitting_time = 0.0, 0.0
-    tn, fp, fn, tp = 0.0, 0.0, 0.0, 0.0
-    tpr, fpr, tprs, aucs = [], [], [], []
-    mean_fpr = np.linspace(0, 1, 100)
+    accuracy, precision, recall, f1 = 0.0, 0.0, 0.0, 0.0
+
     i = 0
 
     for train_idx, test_idx in shuffle.split(X):
@@ -153,48 +153,73 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
         ml = model
 
         if neural_network_epochs:
-            ml.fit(x_train, y_train, epochs=neural_network_epochs, batch_size=16, verbose=0)
+            ml.fit(x_train, y_train, epochs=neural_network_epochs, batch_size=32, verbose=0)
         else:
             ml.fit(x_train, y_train)
 
         pred_train = ml.predict(x_train)
         pred_test = ml.predict(x_test)
 
-        pred_train = np.around(np.ndarray.flatten(pred_train))
-        pred_test = np.around(np.ndarray.flatten(pred_test))
+        pred_train = np.around(pred_train)
+        pred_test = np.around(pred_test)
 
         end = time.perf_counter()
 
-        print (type(y_train), type(pred_train))
-        tn_, fp_, fn_, tp_, acc_ = performance_metrics(y_train, y_test, pred_train, pred_test)
-
-        tn += float(tn_) / num_split
-        fp += float(fp_) / num_split
-        fn += float(fn_) / num_split
-        tp += float(tp_) / num_split
+        acc_, prec_, rec_, f1_ = performance_metrics(y_train, y_test, pred_train, pred_test)
 
         accuracy += float(acc_) / num_split
+        precision += float(prec_) / num_split
+        recall += float(rec_) / num_split
+        f1 += float(f1_) / num_split
+
         fitting_time += (end - start) / num_split
         print ("Fitting time", (end-start), "\n")
 
-        # Plotting ROC curve
-        fpr_, tpr_, thresholds = roc_curve(y_test, pred_test)
-        tprs.append(interp(mean_fpr, fpr_, tpr_))
-        tprs[-1][0] = 0.0
-        roc_auc = auc(fpr_, tpr_)
-        aucs.append(roc_auc)
-        fpr.append(fpr_)
-        tpr.append(tpr_)
-
-    plot_roc_curve(fpr, tpr, aucs, tprs, image_name)
+    # Plotting ROC curve
+    plot_roc_curve(y_test, pred_test, image_name)
 
     print ("===== Average results over %s splits =====" % num_split)
     print ("Accuracy : %f" % accuracy)
-    print ("TN, FP, FN, TP:", tn, fp, fn, tp)
+    print ("Precision:", precision)
+    print ("Recall:", recall)
+    print ("F1 score:", f1)
     print ("Average time taken: %f" % fitting_time)
     print ("==========================================")
 
     return ml
+
+
+def plot_roc_curve(y_test, pred_test, image_name):
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import auc, roc_curve
+
+    # Compute ROC curve and ROC area for each class
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    for i in range(y_test.shape[1]):
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], pred_test[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Compute micro-average ROC curve and ROC area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), pred_test.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    plt.figure()
+    lw = 2
+    label = {0: "herbicide", 1: "insecticide", 2: "nematicide", 3: "fungicide", 4:"toxin"}
+    for i in range(y_test.shape[1]):
+        plt.plot(fpr[i], tpr[i],
+                 lw=lw, label='ROC curve of %s (area = %0.2f)' % (label[i], roc_auc[i]))
+    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC of %s' % image_name[image_name.rfind('/')+1:image_name.rfind("dataset")-1])
+    plt.legend(loc="lower right")
+    plt.savefig(image_name)
+    plt.show()
 
 
 def save_model(model, filename, neural_network):
@@ -223,7 +248,8 @@ def load_model(filepath, neural_network):
     """
     Load model from disk
     :param filepath: (string) file path to load model from
-    :param neural_network: (boolean) whether the model is a neural network model (keras) or conventional machine learning model (scikit-learn).
+    :param neural_network: (boolean) whether the model is a neural network model (keras) or
+    conventional machine learning model (scikit-learn).
     :return: Loaded model
     """
     print ("Loading model from %s ..." % filepath)
@@ -246,74 +272,38 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     :param pred_test: Predicted testing labels.
     :return: Score of true negative, false positive, false negative, true positive and accuracy of model prediction.
     """
-    from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, precision_score,\
-        recall_score, f1_score
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, \
+        average_precision_score, roc_auc_score
 
     print ("Training set report:")
-    print ("Agro vs non-agro: %s vs %s" %(list(y_train).count(1), list(y_train).count(0)))
-    tn_, fp_, fn_, tp_ = confusion_matrix(y_train, pred_train).ravel()
-    print ("TN, FP, FN, TP: %s, %s, %s, %s" %(tn_, fp_, fn_, tp_))
+    print ("True class count: ", y_train.sum(axis=0))
+    print ("Predicted class count: ", pred_train.sum(axis=0))
     print ("Accuracy score:", accuracy_score(y_train, pred_train))
-    print ("AUC score:", roc_auc_score(y_train, pred_train))
-    print ("Precision score:", precision_score(y_train, pred_train))
-    print ("Recall score:", recall_score(y_train, pred_train))
-    print ("F1 score:", f1_score(y_train, pred_train))
+    print ("Precision score:", precision_score(y_train, pred_train, average='macro'))
+    print ("Recall score:", recall_score(y_train, pred_train, average='macro'))
+    print ("Average precision score:", average_precision_score(y_train, pred_train,
+                                                               average='macro'))
+    print ("ROC AUC score:", roc_auc_score(y_train, pred_train, average='macro'))
+    print ("F1 score:", f1_score(y_train, pred_train, average='macro'))
     print ()
     print ("Testing set report:")
-    print ("Agro vs non-agro: %s vs %s" %(list(y_test).count(1), list(y_test).count(0)))
-    tn_, fp_, fn_, tp_ = confusion_matrix(y_test, pred_test).ravel()
-    print ("TN, FP, FN, TP: %s, %s, %s, %s" %(tn_, fp_, fn_, tp_))
-    acc = accuracy_score(y_test, pred_test)
-    print ("Accuracy score:", acc)
-    print ("AUC score:", roc_auc_score(y_test, pred_test))
-    print ("Precision score:", precision_score(y_test, pred_test))
-    print ("Recall score:", recall_score(y_test, pred_test))
-    print ("F1 score:", f1_score(y_test, pred_test))
-    print ()
+    print("True class count: ", y_test.sum(axis=0))
+    print("Predicted class count: ", pred_test.sum(axis=0))
+    print("Accuracy score:", accuracy_score(y_test, pred_test))
+    print("Precision score:", precision_score(y_test, pred_test, average='macro'))
+    print("Recall score:", recall_score(y_test, pred_test, average='macro'))
+    print("Average precision score:", average_precision_score(y_test, pred_test,
+                                                              average='macro'))
+    print("ROC AUC score:", roc_auc_score(y_test, pred_test, average='macro'))
+    print("F1 score:", f1_score(y_test, pred_test, average='macro'))
+    print()
 
-    N_test = len(y_test)
-    tn = float(tn_) / N_test 
-    fp = float(fp_) / N_test 
-    fn = float(fn_) / N_test 
-    tp = float(tp_) / N_test 
+    accuracy = accuracy_score(y_test, pred_test)
+    precision = precision_score(y_test, pred_test, average='macro')
+    recall = recall_score(y_test, pred_test, average='macro')
+    f1 = f1_score(y_test, pred_test, average='macro')
 
-    return tn, fp, fn, tp, acc
-
-
-def plot_roc_curve(fpr, tpr, aucs, tprs, image_name):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from sklearn.metrics import auc
-
-    i = 0
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Chance', alpha=.8)
-    for fpr_, tpr_, roc_auc in zip(fpr, tpr, aucs):
-        i += 1
-        plt.plot(fpr_, tpr_, lw=1, alpha=0.3) #,label='ROC fold %d (AUC = %0.2f)' % (i, roc_auc))
-
-    mean_tpr = np.mean(tprs, axis=0)
-    mean_tpr[-1] = 1.0
-    mean_fpr = np.linspace(0, 1, 100)
-    mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-    plt.plot(mean_fpr, mean_tpr, color='b',
-             label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
-             lw=2, alpha=.8)
-
-    std_tpr = np.std(tprs, axis=0)
-    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
-                     label=r'$\pm$ 1 std. dev.')
-
-    plt.xlim([-0.05, 1.05])
-    plt.ylim([-0.05, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC of %s' % image_name[image_name.rfind('/')+1:image_name.rfind("dataset")-1])
-    plt.legend(loc="lower right")
-    plt.savefig(image_name)
-    # plt.show()
+    return accuracy, precision, recall, f1
 
 
 def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name):
@@ -340,8 +330,3 @@ def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name)
     max_acc_epoch = np.argmax(H.history["val_acc"])
 
     return max(min_loss_epoch, max_acc_epoch)
-
-
-
-
-

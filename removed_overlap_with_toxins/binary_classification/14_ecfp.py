@@ -68,9 +68,8 @@ num_split = args.num_split
 seed = args.seed
 save = args.save_model
 
-neural_network_epochs = 0
+epochs = 0
 if method in ['simplenn']:
-    neural_network_epochs = args.epochs
     if args.layer_dim == 3:
         layers_dim = [X.shape[1], 128, 8, 1]
         activation = ['relu', 'softmax', 'sigmoid']
@@ -80,6 +79,14 @@ if method in ['simplenn']:
     elif args.layer_dim == 5:
         layers_dim = [X.shape[1], 512, 128, 16, 4, 1]
         activation = ['relu', 'tanh', 'softmax', 'tanh', 'sigmoid']
+
+    epochs = model_func.plot_nn_loss_against_epoch(X, Y, layers_dim, activation, args.epochs,
+                                                   image_name='./image/14_ecfp/%s_%s_%s_NNLossAcc.png' % (
+                                                   method, args.dataset[:args.dataset.rfind('.')],
+                                                   args.filename_append))
+
+    print("Number of epochs:", epochs)
+
     model_func.define_model(method)
     model = model_func.build_simplenn_model(layers_dim=layers_dim, activation=activation,
                                             loss=args.loss, optimizer=args.optimizer)
@@ -90,10 +97,10 @@ else:
 model = model_func.train_model(model, num_split, seed, X, Y,
                                image_name='./image/14_ecfp/%s_%s_%s.png' %(method,
                                 args.dataset[:args.dataset.rfind('.')], args.filename_append),
-                               neural_network_epochs=neural_network_epochs)
+                               neural_network_epochs=epochs)
 if save:
     save_filepath = './saved_model/14_ecfp/' + "%s_%s_%s.h" % (method, args.dataset[
                                                             :args.dataset.rfind('.')], args.filename_append)
-    model_func.save_model(model, save_filepath, neural_network_epochs)
+    model_func.save_model(model, save_filepath, epochs)
 
 print ("\nExiting program.")
