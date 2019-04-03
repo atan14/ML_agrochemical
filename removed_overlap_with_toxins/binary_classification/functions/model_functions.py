@@ -324,7 +324,7 @@ def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name)
 
     H = model.fit(X, Y, epochs=epochs, batch_size=16, verbose=0, validation_split=0.2, shuffle=True)
 
-    plt.style.use("ggplot")
+    plt.switch_backend('agg')
     plt.figure()
     plt.plot(np.arange(0, epochs), H.history["loss"], label="train_loss")
     plt.plot(np.arange(0, epochs), H.history["val_loss"], label="val_loss")
