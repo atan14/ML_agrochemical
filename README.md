@@ -10,14 +10,14 @@ Required Packages:
 - matplotlib
 
 Note on files: 
-1. __overlap_with_toxins__ - folder that contains all the previous runs on old data, which consists of compounds which are both toxic and are agrochemicals.
-2. __removed_overlap_with_toxins__ - folder that contains the newer runs on new data. All compounds which are both toxic and used as agrochemicals are completely removed. 
-  - __binary_classification__ - folder for runs that only classify agrochemical and non-agrochemical.
-  - __multiclass_classification__ - folder for runs that further classify sub-agrochemical classes. 
-    - __includes_toxin__ - classify all compounds into sub-agrochemical or non-agrochemical classes (no toxin removed).
-    - __no_toxin__ - only classify agrochemicals into their sub-agrochemical classes (toxin molecules removed).
+1. __overlap\_with_toxins__ - folder that contains all the previous runs on old data, which consists of compounds which are both toxic and are agrochemicals.
+2. __removed\_overlap\_with\_toxins__ - folder that contains the newer runs on new data. All compounds which are both toxic and used as agrochemicals are completely removed. 
+  - __binary\_classification__ - folder for runs that only classify agrochemical and non-agrochemical.
+  - __multiclass\_classification__ - folder for runs that further classify sub-agrochemical classes. 
+    - __includes_\toxin__ - classify all compounds into sub-agrochemical or non-agrochemical classes (no toxin removed).
+    - __no\_toxin__ - only classify agrochemicals into their sub-agrochemical classes (toxin molecules removed).
 
-__dataset1.pkl__ - Dataset that contains 26,543 compounds (11,543 agrochemicals and 15,000 toxins)
+__dataset1.pkl__ - Dataset that contains 26,543 compounds (11,543 agrochemicals and 15,000 toxins) \\
 __dataset2.pkl__ - Dataset that contains all 499,017 extracted compounds (11,543 agrochemicals and 487,474 toxins)
 
 
