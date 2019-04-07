@@ -1,0 +1,30 @@
+#$ -S /bin/bash        # Set shell to run job
+#$ -q all.q            # Choose queue to run job in
+#$ -cwd
+#$ -pe cuda 1          # Request one processor from the CUDA parallel env.
+#$ -l slots_gpu=1      # Request one GPU per CPU requested
+#$ -N binary_epochs   # specify the job name
+
+conda activate tensorflow-trial-1.4
+module load cuda/cuda-8.0    # Depending on Tensorflow or your package requirements, you may need to use specific cuda version (7.0, 7.5, 8.0 installed)
+export CUDA_HOME=/usr/local/cuda-8.0/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-8.0/lib64
+export CUDA_VISIBLE_DEVICES=`cat $TMPDIR/cuda_device`
+
+cd /home/atan14/ml_agro2/removed_overlap_with_toxins/binary_classification/
+
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset1 3
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset1 4
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset1 5
+
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset2 3
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset2 4
+mpirun -np 1 python 21_plot-loss-against-epochs.py daylight dataset2 5
+
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset1 3
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset1 4
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset1 5
+
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset2 3
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset2 4
+mpirun -np 1 python 21_plot-loss-against-epochs.py ecfp dataset2 5

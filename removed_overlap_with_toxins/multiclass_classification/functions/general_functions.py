@@ -22,3 +22,9 @@ def import_pandas_dataframe(pathway):
     print ("Done importing data.")
     return data
 
+
+def check_path_exists(filename):
+    import os
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+

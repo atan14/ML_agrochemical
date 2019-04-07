@@ -192,6 +192,9 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
 def plot_roc_curve(y_test, pred_test, image_name):
     import matplotlib.pyplot as plt
     from sklearn.metrics import auc, roc_curve
+    from functions import general_functions as general
+
+    general.check_path_exists(image_name)
 
     # Compute ROC curve and ROC area for each class
     fpr = dict()
@@ -219,7 +222,7 @@ def plot_roc_curve(y_test, pred_test, image_name):
     plt.title('ROC of %s' % image_name[image_name.rfind('/')+1:image_name.rfind("dataset")-1])
     plt.legend(loc="lower right")
     plt.savefig(image_name)
-    plt.show()
+    # plt.show()
 
 
 def save_model(model, filename, neural_network):
@@ -230,10 +233,8 @@ def save_model(model, filename, neural_network):
     :param neural_network: (boolean) whether the model is a neural network model (keras) or conventional machine learning model (scikit-learn).
     :return: None
     """
-    import os
-    if not os.path.isdir(filename[:filename.rfind('/')]):
-        print ("Creating directory '%s'" % filename[:filename.rfind('/')])
-        os.mkdir(filename[:filename.rfind('/')])
+    from functions import general_functions as general
+    general.check_path_exists(filename)
 
     print ("\nSaving model to '%s' ..." % filename)
     if neural_network:
@@ -306,27 +307,41 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     return accuracy, precision, recall, f1
 
 
-def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name):
+def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name,
+                               loss='binary_crossentropy', optimizer='adam'):
     import matplotlib.pyplot as plt
     import numpy as np
+    from functions import general_functions as general
 
-    model = build_simplenn_model(layers_dim=layers_dim, activation=activation)
+    general.check_path_exists(image_name)
+
+    model = build_simplenn_model(layers_dim=layers_dim, activation=activation, loss=loss,
+                                 optimizer=optimizer)
+
+    print ()
+    print ("Number of epochs:", epochs)
+    print ("Loss function:", loss)
+    print ("Optimizer function:", optimizer)
+    print ()
 
     H = model.fit(X, Y, epochs=epochs, batch_size=16, verbose=0, validation_split=0.2, shuffle=True)
 
-    plt.switch_backend("agg")
+    training_loss = H.history['loss']
+    validation_loss = H.history['val_loss']
+    training_acc = H.history['acc']
+    validation_acc = H.history['val_acc']
+
+    plt.switch_backend('agg')
     plt.figure()
-    plt.plot(np.arange(0, epochs), H.history["loss"], label="train_loss")
-    plt.plot(np.arange(0, epochs), H.history["val_loss"], label="val_loss")
-    plt.plot(np.arange(0, epochs), H.history["acc"], label="train_acc")
-    plt.plot(np.arange(0, epochs), H.history["val_acc"], label="val_acc")
-    plt.title("Loss and Accuracy against Epochs")
-    plt.xlabel("Num of Epochs")
-    plt.ylabel("Loss/Accuracy")
+    plt.plot(np.arange(0, epochs), training_loss, marker='o', label="train_loss")
+    plt.plot(np.arange(0, epochs), validation_loss, marker='o',label="val_loss")
+    plt.plot(np.arange(0, epochs), training_acc, marker='o',label="train_acc")
+    plt.plot(np.arange(0, epochs), validation_acc, marker='o',label="val_acc")
+    # plt.title("Loss and Accuracy against Epochs")
+    plt.xlabel("Number of Epochs")
+    plt.ylabel("Loss / Accuracy")
     plt.legend(loc="best")
     plt.savefig(image_name)
 
-    min_loss_epoch = np.argmin(H.history["val_loss"])
-    max_acc_epoch = np.argmax(H.history["val_acc"])
+    return training_acc, training_loss, validation_acc, validation_loss
 
-    return max(min_loss_epoch, max_acc_epoch)
