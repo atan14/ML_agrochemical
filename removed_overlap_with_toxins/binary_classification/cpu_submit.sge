@@ -1,0 +1,9 @@
+#$ -S /bin/bash        # Set shell to run job
+#$ -q all.q            # Choose queue to run job in 
+#$ -cwd
+#$ -N poster   # specify the job name
+
+conda activate tensorflow-trial-1.4
+cd /home/atan14/ml_agro2/removed_overlap_with_toxins/binary_classification/
+python test-for-poster.py daylight dataset2.pkl
+python test-for-poster.py ecfp dataset2.pkl

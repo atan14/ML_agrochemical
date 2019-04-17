@@ -1,21 +1,27 @@
-def build_simplenn_model(layers_dim=[2048, 128, 8, 1], activation=['relu', 'softmax', 'sigmoid'],
+def build_simplenn_model(layers_dim=[512, 128, 32, 8, 1], activation=['relu', 'relu', 'relu', 'relu', 'sigmoid'],
                          loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']):
-    if len(layers_dim) - 1 != len(activation):
+    if len(layers_dim) != len(activation):
         raise Exception("Number of layers and activation functions must match!")
 
-    import keras
+    from keras.models import Sequential
+    from keras.layers import InputLayer, Dense, Dropout
+    import tensorflow as tf
+    
+    a = tf.placeholder(dtype=tf.float32, shape=(None, 2048))
+    
     model = keras.models.Sequential()
-    for i in range(len(activation)):
-        model.add(keras.layers.Dense(layers_dim[i + 1], input_dim=layers_dim[i],
-                                     activation=activation[i]))
-
+    
+    model.add(InputLayer(input_tensor=a, input_shape=(None, 2048)))
+    for layer, act in zip(layers_dim, activation):
+        model.add(Dense(layer, activation=act))
+        model.add(Dropout(0.3))
+    
     # Compile model
     model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
     model.summary()
 
     return model
-
 
 def define_model(method, argv=0):
     """
@@ -118,7 +124,7 @@ def define_model(method, argv=0):
     return model
 
 
-def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=0):
+def train_model(model, num_split, seed, X, Y, neural_network_epochs=0):
     """
     Train input model and obtain averaged results.
     :param model: Input model for training.
@@ -131,16 +137,13 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
     :return: Trained model
     """
     from sklearn.model_selection import ShuffleSplit
-    from sklearn.metrics import roc_curve, auc
-    from scipy import interp
     import numpy as np
     import time
 
     shuffle = ShuffleSplit(n_splits=num_split, random_state=seed, test_size=0.2)
     accuracy, fitting_time = 0.0, 0.0
     tn, fp, fn, tp = 0.0, 0.0, 0.0, 0.0
-    tpr, fpr, tprs, aucs = [], [], [], []
-    mean_fpr = np.linspace(0, 1, 100)
+    auc_score, f1, precision, recall = 0.0, 0.0, 0.0, 0.0
     i = 0
 
     for train_idx, test_idx in shuffle.split(X):
@@ -165,8 +168,8 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
 
         end = time.perf_counter()
 
-        print (type(y_train), type(pred_train))
-        tn_, fp_, fn_, tp_, acc_ = performance_metrics(y_train, y_test, pred_train, pred_test)
+        tn_, fp_, fn_, tp_, acc_, auc_, precision_, recall_, f1_ = performance_metrics(y_train,
+                                                                                    y_test, pred_train, pred_test)
 
         tn += float(tn_) / num_split
         fp += float(fp_) / num_split
@@ -174,23 +177,17 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
         tp += float(tp_) / num_split
 
         accuracy += float(acc_) / num_split
+        auc_score += float(auc_) / num_split
+        precision += float(precision_) / num_split
+        recall += float(recall_) / num_split
+        f1 += float(f1_) / num_split
         fitting_time += (end - start) / num_split
         print ("Fitting time", (end-start), "\n")
-
-        # Plotting ROC curve
-        fpr_, tpr_, thresholds = roc_curve(y_test, pred_test)
-        tprs.append(interp(mean_fpr, fpr_, tpr_))
-        tprs[-1][0] = 0.0
-        roc_auc = auc(fpr_, tpr_)
-        aucs.append(roc_auc)
-        fpr.append(fpr_)
-        tpr.append(tpr_)
-
-    plot_roc_curve(fpr, tpr, aucs, tprs, image_name)
 
     print ("===== Average results over %s splits =====" % num_split)
     print ("Accuracy : %f" % accuracy)
     print ("TN, FP, FN, TP:", tn, fp, fn, tp)
+    print ("AUC, Precision, Recall, F1: %f, %f, %f, %f" %(auc_score, precision, recall, f1) )
     print ("Average time taken: %f" % fitting_time)
     print ("==========================================")
 
@@ -212,8 +209,10 @@ def save_model(model, filename, neural_network):
     if neural_network:
         model.save(filename)
     else:
-        import pickle
-        pickle.dump(model, open(filename, 'wb'))
+    #    import pickle
+    #    pickle.dump(model, open(filename, 'wb'))
+        from sklearn.externals import joblib
+        joblib.dump(model, filename)
     print ("Saving model done.")
 
 
@@ -229,8 +228,10 @@ def load_model(filepath, neural_network):
         from keras.models import load_model
         model = load_model(filepath)
     else:
-        import pickle
-        model = pickle.load(open(filepath, 'rb'))
+        #import pickle
+        #model = pickle.load(open(filepath, 'rb'))
+        from sklearn.externals import joblib
+        joblib.dump(model, filename)
     print ("Loading model done.")
     return model
 
@@ -262,20 +263,24 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     tn_, fp_, fn_, tp_ = confusion_matrix(y_test, pred_test).ravel()
     print ("TN, FP, FN, TP: %s, %s, %s, %s" %(tn_, fp_, fn_, tp_))
     acc = accuracy_score(y_test, pred_test)
+    auc = roc_auc_score(y_test, pred_test)
+    precision = precision_score(y_test, pred_test)
+    recall = recall_score(y_test, pred_test)
+    f1 = f1_score(y_test, pred_test)
     print ("Accuracy score:", acc)
-    print ("AUC score:", roc_auc_score(y_test, pred_test))
-    print ("Precision score:", precision_score(y_test, pred_test))
-    print ("Recall score:", recall_score(y_test, pred_test))
-    print ("F1 score:", f1_score(y_test, pred_test))
+    print ("AUC score:", auc)
+    print ("Precision score:", precision)
+    print ("Recall score:", recall)
+    print ("F1 score:", f1)
     print ()
 
     N_test = len(y_test)
     tn = float(tn_) / N_test 
     fp = float(fp_) / N_test 
     fn = float(fn_) / N_test 
-    tp = float(tp_) / N_test 
+    tp = float(tp_) / N_test
 
-    return tn, fp, fn, tp, acc
+    return tn, fp, fn, tp, acc, auc, precision, recall, f1
 
 
 def plot_roc_curve(fpr, tpr, aucs, tprs, image_name):
@@ -285,6 +290,7 @@ def plot_roc_curve(fpr, tpr, aucs, tprs, image_name):
     from functions import general_functions as general
 
     general.check_path_exists(image_name)
+    plt.switch_backend('agg')
 
     i = 0
     plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Chance', alpha=.8)
@@ -314,7 +320,6 @@ def plot_roc_curve(fpr, tpr, aucs, tprs, image_name):
     plt.title('ROC of %s' % image_name[image_name.rfind('/')+1:image_name.rfind("dataset")-1])
     plt.legend(loc="lower right")
     plt.savefig(image_name)
-    # plt.show()
 
 
 def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name,

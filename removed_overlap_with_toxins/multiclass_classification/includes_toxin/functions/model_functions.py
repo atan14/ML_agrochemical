@@ -1,14 +1,21 @@
-def build_simplenn_model(layers_dim=[2048, 128, 8, 1], activation=['relu', 'softmax', 'sigmoid'],
+def build_simplenn_model(layers_dim=[512, 128, 32, 8, 5], activation=['relu', 'relu', 'relu', 'relu', 'sigmoid'],
                          loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']):
-    if len(layers_dim) - 1 != len(activation):
+    if len(layers_dim) != len(activation):
         raise Exception("Number of layers and activation functions must match!")
 
-    import keras
+    from keras.models import Sequential
+    from keras.layers import InputLayer, Dense, Dropout
+    import tensorflow as tf
+    
+    a = tf.placeholder(dtype=tf.float32, shape=(None, 2048))
+    
     model = keras.models.Sequential()
-    for i in range(len(activation)):
-        model.add(keras.layers.Dense(layers_dim[i + 1], input_dim=layers_dim[i],
-                                     activation=activation[i]))
-
+    
+    model.add(InputLayer(input_tensor=a, input_shape=(None, 2048)))
+    for layer, act in zip(layers_dim, activation):
+        model.add(Dense(layer, activation=act))
+        model.add(Dropout(0.3))
+    
     # Compile model
     model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
@@ -120,7 +127,7 @@ def define_model(method, argv=0):
     return model
 
 
-def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=0):
+def train_model(model, num_split, seed, X, Y, neural_network_epochs=0):
     """
     Train input model and obtain averaged results.
     :param model: Input model for training.
@@ -139,7 +146,8 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
 
     shuffle = ShuffleSplit(n_splits=num_split, random_state=seed, test_size=0.2)
     accuracy, fitting_time = 0.0, 0.0
-    accuracy, precision, recall, f1 = 0.0, 0.0, 0.0, 0.0
+    precision, recall, f1 = 0.0, 0.0, 0.0, 0.0
+    avg_precision, roc_auc, hamming = 0.0, 0.0, 0.0
 
     i = 0
 
@@ -153,7 +161,7 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
         ml = model
 
         if neural_network_epochs:
-            ml.fit(x_train, y_train, epochs=neural_network_epochs, batch_size=32, verbose=0)
+            ml.fit(x_train, y_train, epochs=neural_network_epochs, batch_size=16, verbose=0)
         else:
             ml.fit(x_train, y_train)
 
@@ -165,24 +173,28 @@ def train_model(model, num_split, seed, X, Y, image_name, neural_network_epochs=
 
         end = time.perf_counter()
 
-        acc_, prec_, rec_, f1_ = performance_metrics(y_train, y_test, pred_train, pred_test)
+        acc_, prec_, rec_, f1_, avg_prec_, roc_auc_, hamming_ = performance_metrics(y_train, y_test, pred_train, pred_test)
 
         accuracy += float(acc_) / num_split
         precision += float(prec_) / num_split
         recall += float(rec_) / num_split
         f1 += float(f1_) / num_split
 
+        avg_precision += float(avg_prec_) / num_split
+        roc_auc += float(roc_auc_) / num_split
+        hamming += float(hamming_) / num_split
+
         fitting_time += (end - start) / num_split
         print ("Fitting time", (end-start), "\n")
-
-    # Plotting ROC curve
-    plot_roc_curve(y_test, pred_test, image_name)
 
     print ("===== Average results over %s splits =====" % num_split)
     print ("Accuracy : %f" % accuracy)
     print ("Precision:", precision)
     print ("Recall:", recall)
     print ("F1 score:", f1)
+    print ("Average Precision:", avg_precision)
+    print ("ROC AUC Score:", roc_auc)
+    print ("Hamming Loss:", hamming)
     print ("Average time taken: %f" % fitting_time)
     print ("==========================================")
 
@@ -208,6 +220,7 @@ def plot_roc_curve(y_test, pred_test, image_name):
     fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), pred_test.ravel())
     roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
+    plt.switch_backend("agg")
     plt.figure()
     lw = 2
     label = {0: "herbicide", 1: "insecticide", 2: "nematicide", 3: "fungicide", 4:"toxin"}
@@ -222,7 +235,6 @@ def plot_roc_curve(y_test, pred_test, image_name):
     plt.title('ROC of %s' % image_name[image_name.rfind('/')+1:image_name.rfind("dataset")-1])
     plt.legend(loc="lower right")
     plt.savefig(image_name)
-    # plt.show()
 
 
 def save_model(model, filename, neural_network):
@@ -240,8 +252,10 @@ def save_model(model, filename, neural_network):
     if neural_network:
         model.save(filename)
     else:
-        import pickle
-        pickle.dump(model, open(filename, 'wb'))
+        #import pickle
+        #pickle.dump(model, open(filename, 'wb'))
+        from sklearn.externals import joblib
+        joblib.dump(model, filename)
     print ("Saving model done.")
 
 
@@ -274,7 +288,7 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     :return: Score of true negative, false positive, false negative, true positive and accuracy of model prediction.
     """
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, \
-        average_precision_score, roc_auc_score
+        average_precision_score, roc_auc_score, hamming_loss
 
     print ("Training set report:")
     print ("True class count: ", y_train.sum(axis=0))
@@ -286,6 +300,7 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
                                                                average='macro'))
     print ("ROC AUC score:", roc_auc_score(y_train, pred_train, average='macro'))
     print ("F1 score:", f1_score(y_train, pred_train, average='macro'))
+    print ("Hamming loss:", hamming_loss(y_train, pred_train))
     print ()
     print ("Testing set report:")
     print("True class count: ", y_test.sum(axis=0))
@@ -297,6 +312,7 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
                                                               average='macro'))
     print("ROC AUC score:", roc_auc_score(y_test, pred_test, average='macro'))
     print("F1 score:", f1_score(y_test, pred_test, average='macro'))
+    print ("Hamming loss:", hamming_loss(y_test, pred_test))
     print()
 
     accuracy = accuracy_score(y_test, pred_test)
@@ -304,7 +320,11 @@ def performance_metrics(y_train, y_test, pred_train, pred_test):
     recall = recall_score(y_test, pred_test, average='macro')
     f1 = f1_score(y_test, pred_test, average='macro')
 
-    return accuracy, precision, recall, f1
+    average_precision = average_precision_score(y_test, pred_test, average='macro')
+    roc_auc_score = roc_auc_score(y_test, pred_test, average='macro')
+    hamming_loss = hamming_loss(y_test, pred_test)
+
+    return accuracy, precision, recall, f1, average_precision, roc_auc_score, hamming_loss
 
 
 def plot_nn_loss_against_epoch(X, Y, layers_dim, activation, epochs, image_name,

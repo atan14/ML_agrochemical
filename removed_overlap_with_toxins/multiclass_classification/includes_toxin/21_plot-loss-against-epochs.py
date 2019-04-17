@@ -15,8 +15,6 @@ parser = argparse.ArgumentParser(description='Plotting validation accuracy and l
 parser.add_argument('featurizer', type=str, help='type of feature (choice: daylight, ecfp)')
 parser.add_argument('dataset', type=str, help='dataset to be used (choice: dataset1.pkl, '
                                               'dataset2.pkl)')
-parser.add_argument('num_layers', type=int, help='number of layers to use for training (choice: '
-                                                 '3, 4, 5).')
 parser.add_argument('--epochs', type=int, default=100, help='number of epochs for training')
 parser.add_argument('--loss', type=str, default='binary_crossentropy', help='type of loss '
                                                                             'function to use')
@@ -66,21 +64,9 @@ X = np.array(np.stack(X), dtype=float)
 mlb = MultiLabelBinarizer().fit(data['agrochemical'])
 Y = mlb.transform(data['agrochemical'])
 
-# Standard scaling
-print("Standard scaling...")
-X = StandardScaler().fit_transform(X)
-print("Standard scaling done.")
-
 # Build neural network model
-if args.num_layers == 3:
-    layers_dim = [X.shape[1], 128, 8, Y.shape[1]]
-    activation = ['relu', 'softmax', 'sigmoid']
-elif args.num_layers == 4:
-    layers_dim = [X.shape[1], 512, 128, 8, Y.shape[1]]
-    activation = ['relu', 'tanh', 'softmax', 'sigmoid']
-elif args.num_layers == 5:
-    layers_dim = [X.shape[1], 512, 128, 16, 4, Y.shape[1]]
-    activation = ['relu', 'tanh', 'softmax', 'tanh', 'sigmoid']
+layers_dim = [X.shape[1], 512, 128, 16, 4, Y.shape[1]]
+activation = ['relu', 'relu', 'relu', 'relu', 'sigmoid']
 
 
 image_name = filename[:filename.rfind('.')] + '.png'

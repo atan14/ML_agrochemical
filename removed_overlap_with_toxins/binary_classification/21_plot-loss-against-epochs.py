@@ -66,11 +66,6 @@ Y = data['agrochemical']
 X = np.array(np.stack(X), dtype=float)
 Y = np.array(Y, dtype=float)
 
-# Standard scaling
-print("Standard scaling...")
-X = StandardScaler().fit_transform(X)
-print("Standard scaling done.")
-
 # Build neural network model
 if args.num_layers == 3:
     layers_dim = [X.shape[1], 128, 8, 1]

@@ -1,0 +1,34 @@
+#$ -S /bin/bash    # Set shell to run job
+#$ -q all.q      # Choose queue to run job in 
+#$ -cwd
+#$ -pe cuda 1     # Request one processor from the CUDA parallel env.
+#$ -l slots_gpu=1   # Request one GPU per CPU requested
+#$ -N b4nndata2  # specify the job name
+
+conda activate tensorflow-trial-1.4
+module load cuda/cuda-8.0  # Depending on Tensorflow or your package requirements, you may need to use specific cuda version (7.0, 7.5, 8.0 installed)
+export CUDA_HOME=/usr/local/cuda-8.0/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-8.0/lib64
+export CUDA_VISIBLE_DEVICES=`cat $TMPDIR/cuda_device`
+
+cd /home/atan14/ml_agro2/removed_overlap_with_toxins/no_scaling/binary/
+
+# DAYLIGHT
+# SimpleNN
+#mpirun -np 1 python 12_run.py daylight dataset2.pkl simplenn --filename_append 5layers
+# Random Forest
+#mpirun -np 1 python 12_run.py daylight dataset2.pkl randomforest --model_param 500 3 --filename_append 500estimators_3depth
+# Gradient Boosting
+#mpirun -np 1 python 12_run.py daylight dataset2.pkl gradientboosting --model_param 500 0.5 3 --filename_append 500estimators_3depth_lr0.5
+# K-Nearest Neighbor
+#mpirun -np 1 python 12_run.py daylight dataset2.pkl knearest --model_param 3 distance brute --filename_append 3nn_distance_brute
+
+# ECFP
+# SimpleNN
+mpirun -np 1 python 12_run.py ecfp dataset2.pkl simplenn --filename_append 5layers
+# Random Forest
+#mpirun -np 1 python 12_run.py ecfp dataset2.pkl randomforest --model_param 500 3 --filename_append 500estimators_3depth
+# Gradient Boosting
+#mpirun -np 1 python 12_run.py ecfp dataset2.pkl gradientboosting --model_param 500 0.5 3 --filename_append 500estimators_3depth_lr0.5
+# K-Nearest Neighbor
+#mpirun -np 1 python 12_run.py ecfp dataset2.pkl knearest --model_param 3 distance brute --filename_append 3nn_distance_brute
