@@ -1,0 +1,27 @@
+#$ -S /bin/bash    # Set shell to run job
+#$ -q all.q      # Choose queue to run job in
+#$ -cwd
+#$ -N nn_rdk  # specify the job name
+
+conda activate tensorflow-trial-1.4
+
+ft=rdk
+epochs=20
+num_split=1
+batch_size=16
+dropout_rate=0.3
+
+cd /home/atan14/ml_agro2/based_on_activity/
+
+mpirun -np 1 python run_nn.py $ft --epochs $epochs --num_split $num_split --kernel_regularizer None --dropout_rate $dropout_rate
+
+for reg in l1 l2 l1_l2
+do
+    echo "$reg"
+    for lambda in 0.0000001 0.0000005 0.000001 0.000005 0.00001 0.00005 0.0001
+    do
+        echo "$lambda"
+        python run_nn.py $ft --epochs $epochs --num_split $num_split --kernel_regularizer $reg --regularizer_param $lambda --batch_size $batch_size --dropout_rate $dropout_rate
+    done
+done
+

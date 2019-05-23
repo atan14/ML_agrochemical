@@ -1,0 +1,32 @@
+#$ -S /bin/bash    # Set shell to run job
+#$ -q all.q      # Choose queue to run job in
+#$ -cwd
+#$ -pe cuda 1
+#$ -l slots_gpu=1
+#$ -N gb_rdk  # specify the job name
+
+ft=rdk
+num_split=10
+max_depth=3
+
+conda activate tensorflow-trial-1.4
+module load cuda/cuda-8.0  # Depending on Tensorflow or your package requirements, you may need to use specific cuda version (7.0, 7.5, 8.0 installed)
+export CUDA_HOME=/usr/local/cuda-8.0/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-8.0/lib64
+export CUDA_VISIBLE_DEVICES=`cat $TMPDIR/cuda_device`
+
+cd /home/atan14/ml_agro2/based_on_activity/
+
+for max_ft in None auto sqrt log2
+do
+    echo "$max_ft"
+    for trees in 200 500
+    do
+        echo "$trees"
+        for lr in 0.2 0.5 0.8
+        do
+            mpirun -np 1 python run_gb.py $ft --num_split $num_split --max_depth $max_depth --learning_rate $lr --num_trees $trees --max_features $max_ft
+        done
+    done
+done
+

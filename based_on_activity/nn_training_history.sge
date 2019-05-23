@@ -1,0 +1,15 @@
+#$ -S /bin/bash    # Set shell to run job
+#$ -q all.q      # Choose queue to run job in
+#$ -cwd
+#$ -N nn_history  # specify the job name
+
+epochs=50
+batch_size=16
+lambda=0.00005
+
+conda activate tensorflow-trial-1.4
+
+python nn_training_history.py ecfp --epochs $epochs --batch_size $batch_size
+python nn_training_history.py ecfp --kernel_regularizer l1 --regularizer_param $lambda --epochs $epochs --batch_size $batch_size
+python nn_training_history.py rdk --epochs $epochs --batch_size $batch_size
+python nn_training_history.py rdk --kernel_regularizer l1 --regularizer_param $lambda --epochs $epochs --batch_size $batch_size

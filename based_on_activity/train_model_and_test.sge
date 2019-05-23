@@ -1,0 +1,21 @@
+#$ -S /bin/bash    # Set shell to run job
+#$ -q all.q      # Choose queue to run job in
+#$ -cwd
+#$ -N train_and_test  # specify the job name
+
+conda activate tensorflow-trial-1.4
+
+cd /home/atan14/ml_agro2/based_on_activity/
+
+for ft in ecfp rdk
+do
+    for model in NN GB RF KNN
+    do
+        for split in random scaffold
+        do
+            python 2_pick-model-and-train.py $model $ft $split
+            python 3_load-model-and-test.py ./best_models/${model}_${ft}_${split}.h --split_type $split --test True
+        done
+    done
+done
+
